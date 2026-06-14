@@ -28,7 +28,7 @@ def replaceLineInFile(filePath: str, lineNumber: int, newLine: str) -> str:
     If newLine contains multiple lines, it will overwrite the targeted line 
     AND the subsequent lines matching the incoming length, completely 
     stomping over them instead of pushing them down.
-    Note that all three arguments are required. All three arguments are required. Lines are 1-indexed.
+    Note that all three arguments are required. All three arguments are required. Use \\n for new lines. Lines are 1-indexed.
     Format: replaceLineInFile(filePath: str, lineNumber: int, newLine: str) -> str"""
     lineNumber -= 1 # Convert to 0-indexed
     try:
@@ -52,7 +52,7 @@ def replaceLineInFile(filePath: str, lineNumber: int, newLine: str) -> str:
 
 def insertLineInFile(filePath: str, lineNumber: int, newLine: str) -> str:
     """Inserts a line at a targeted line number inside a file. Note that if newLine contains new line characters, it will inserted as multiple lines (without replacing any lines). Note that all three arguments are required. Lines are 1-indexed.
-    Format: insertLineInFile(filePath: str, lineNumber: int, newLine: str) -> str
+    Use \\n for newlines. Format: insertLineInFile(filePath: str, lineNumber: int, newLine: str) -> str
     """
     lineNumber -= 1 # Convert to 0-indexed
     try:
