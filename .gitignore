@@ -8,3 +8,5 @@
 /pyvenv.cfg
 /test.py
 **/*.json
+**/*.egg-info
+/.vscode/

@@ -1,0 +1,20 @@
+[build-system]
+requires = ["setuptools>=65.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "ironhat"
+version = "0.0.1"
+description = "Local AI coding agent that runs local models via Ollama"
+readme = "README.md"
+requires-python = ">=3.9"
+dependencies = [
+    "ollama>=0.6.2",
+    "rich>=15.0.0",
+]
+
+[tool.setuptools]
+py-modules = ["main", "config", "toolset", "utils"]
+
+[project.scripts]
+ironhat = "src.main:main"
