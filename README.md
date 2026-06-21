@@ -1,5 +1,6 @@
 # Ironhat
 Ironhat is a local AI coding agent. This means the model runs entirely on your computer and can run offline. Still quite buggy.
+Note: default model is gemma4:12b.
 # Features
 * Can edit or create files
     * (requests for your permission first, of course)

@@ -10,3 +10,4 @@
 **/*.json
 **/*.egg-info
 /.vscode/
+/build/
