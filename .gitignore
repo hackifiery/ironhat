@@ -6,4 +6,5 @@
 /Scripts/
 /share/
 /pyvenv.cfg
-/fib.py
+/test.py
+**/*.json

@@ -6,34 +6,52 @@ from rich.live import Live
 from rich.markdown import Markdown
 #from rich.panel import Panel
 #from rich.syntax import Syntax
+import config
+from typing import Callable
+import utils
 
 from toolset import *
 
 con = Console()
 
-MODEL = "qwen3.5:9b"
+model = config.MODEL
 
-tools = {
-    "readFile": readFile,
-    "findInFile": findInFile,
-    "replaceLineInFile": replaceLineInFile,
-    "insertLineInFile": insertLineInFile,
-    "runPythonFile": runPythonFile,
-    "listDirectory": listDirectory
-}
+toolsDict:dict[str, Callable] = dict(zip([i.__name__ for i in config.TOOLS], config.TOOLS)) # tool name to tool callable
+tools: list[Callable] = config.TOOLS
+messages: list[dict[str, str] | Message] = []
+
+utils.pullModelIfNotExists(model)
+
 while True:
     q = con.input("> ").strip()
     if not q: continue
-    if q.lower() in {"/exit", "/quit"}: break
-    messages: list[dict[str, str] | Message] = [
-        {"role": "user", "content": q}
-    ]
+    if q[0] == "/":
+        if q.lower() in ["/exit", "/quit", "/q"]: break
+        elif q.split()[0].lower() in ["/save", "/s"]:
+            if len(q.split()) < 2: con.print("[red]Error: Please provide a filename to save the conversation.[/red]"); continue
+            utils.saveConversation(messages, q.split()[1])
+        elif q.split()[0].lower() in ["/load", "/l"]:
+            if len(q.split()) < 2: con.print("[red]Error: Please provide a filename to load the conversation from.[/red]"); continue
+            messages = utils.loadConversation(q.split()[1])
+        continue
+
+    """if q.lower().split()[0] == "/model":
+        if len(q.split()) < 2:
+            con.print(model)
+            continue
+        model = q.split()[1]
+        ollama.pull(model)
+
+        con.print(f"[green]Switched to model: {model}[/green]")
+        continue
+    """
+    messages.append({"role": "user", "content": q})
 
     stream = ollama.chat(
-        model=MODEL,
+        model=model,
         messages=messages,
         stream=True,
-        tools=[readFile, findInFile, replaceLineInFile, insertLineInFile, runPythonFile, listDirectory]
+        tools=tools
     )
 
     toolCalls = []
@@ -42,15 +60,16 @@ while True:
         calledTool = False
         aiMsg = None
         t = ""
-        with Live(Markdown(f"{MODEL}: "), console=con, refresh_per_second=20) as live:
+        with Live(Markdown(f"{model}: "), console=con, refresh_per_second=20) as live:
             try:
                 for chunk in stream:
                     if chunk.message.content:
                         t += chunk.message.content
                         # Re-render the entire accumulated text as markdown
-                        live.update(Markdown(f"{MODEL}: {t}"))
+                        live.update(Markdown(f"{model}: {t}"))
                         
                     if chunk.message.tool_calls:
+                        # 1 or more tools called
                         aiMsg = chunk.message  
                         for tool_call in chunk.message.tool_calls:
                             calledTool = True
@@ -64,7 +83,7 @@ while True:
                 calledTool = True  # retry response
 
         if toolCalls:
-            assert aiMsg is not None # will never happen, just for type checking
+            assert aiMsg is not None # will never happen, just for type checking :\
             messages.append(aiMsg)
             for call in toolCalls:
                 toolName = call.function.name
@@ -76,7 +95,7 @@ while True:
                 choice = con.input("[yellow]Allow execution? (y/N): [/yellow]").strip().lower()
                 
                 if choice == 'y':
-                    func = tools.get(toolName)
+                    func = toolsDict.get(toolName)
                     if func:
                         try:
                             result = func(**toolArgs)
@@ -93,10 +112,10 @@ while True:
             toolCalls.clear()
             if calledTool:
                 stream = ollama.chat(
-                    model=MODEL,
+                    model=model,
                     messages=messages,
                     stream=True,
-                    tools=[readFile, findInFile, replaceLineInFile, insertLineInFile, runPythonFile, listDirectory]
+                    tools=tools
                 )
 
         con.print()
