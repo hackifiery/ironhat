@@ -6,12 +6,12 @@ from rich.live import Live
 from rich.markdown import Markdown
 #from rich.panel import Panel
 #from rich.syntax import Syntax
-import config
+import ironhat.config as config
 from typing import Callable
-import src.utils as utils
+import ironhat.utils as utils
 import os
 
-from src.toolset import *
+from ironhat.toolset import *
 def main()->None:
     #print(os.getcwd())
     con = Console()

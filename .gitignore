@@ -11,3 +11,7 @@
 **/*.egg-info
 /.vscode/
 /build/
+/lib/
+/lib64
+/bin/
+/include/

@@ -13,8 +13,11 @@ dependencies = [
     "rich>=15.0.0",
 ]
 
-[tool.setuptools]
-py-modules = ["main", "config", "toolset", "utils"]
+[tool.setuptools.packages.find]
+where = ["src"]
+
+#[tool.setuptools]
+#py-modules = ["config"]
 
 [project.scripts]
-ironhat = "src.main:main"
+ironhat = "ironhat.main:main"
