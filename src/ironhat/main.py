@@ -9,6 +9,7 @@ from rich.markdown import Markdown
 import ironhat.config as config
 from typing import Callable
 import ironhat.utils as utils
+from typing import Literal
 import os
 
 from ironhat.toolset import *
@@ -53,72 +54,104 @@ def main()->None:
             model=model,
             messages=messages,
             stream=True,
-            tools=tools
+            think=config.THINKING,
+            tools=tools if config.TOOLS_ENABLED else None
         )
 
         toolCalls = []
         calledTool = True # whether the most recent AI message contains tool calls
         while calledTool:
             calledTool = False
+            thinkingText: str = ""
             aiMsg = None
-            t = ""
-            with Live(Markdown(f"{model}: "), console=con, refresh_per_second=20) as live:
+            t: str = ""
+
+            with Live(
+                Markdown(f"**{model}**: thinking..."),
+                console=con,
+                refresh_per_second=20,
+                vertical_overflow="visible",
+            ) as live:
                 try:
                     for chunk in stream:
+                        if getattr(chunk.message, "thinking", None):
+                            assert chunk.message.thinking is not None # type checking
+                            thinkingText += chunk.message.thinking
+
                         if chunk.message.content:
                             t += chunk.message.content
-                            # Re-render the entire accumulated text as markdown
-                            live.update(Markdown(f"{model}: {t}"))
-                            
+
+                        displayMd = f"**{model}**:\n"
+                        if thinkingText:
+                            displayMd += f"> *Thinking...*\n> " + thinkingText.replace("\n", "\n> ")
+                            if t:
+                                displayMd += "\n\n---\n\n"
+                        
+                        displayMd += t
+                        live.update(Markdown(displayMd))
+
                         if chunk.message.tool_calls:
-                            # 1 or more tools called
-                            aiMsg = chunk.message  
+                            aiMsg = chunk.message
                             for tool_call in chunk.message.tool_calls:
                                 calledTool = True
                                 toolCalls.append(tool_call)
+
                 except ResponseError as e:
                     con.print(f"\n[bold red][Ollama Parsing Error]:[/bold red] {e}")
                     messages.append({
-                        "role": "user", 
-                        "content": "Your last tool call formatting failed the XML parser. If you are trying to write multi-line blocks, try using shorter code segments, avoid complex nested quotes within arguments, or use the writeFile tool."
+                        "role": "user",
+                        "content": "Your last tool call formatting failed the XML parser.",
                     })
-                    calledTool = True  # retry response
+                    calledTool = True
 
+            # If tool calls were made, attach any streamed content to aiMsg before storing
             if toolCalls:
-                assert aiMsg is not None # will never happen, just for type checking :\
-                messages.append(aiMsg)
+                if aiMsg is not None:
+                    if t and not aiMsg.content:
+                        aiMsg.content = t
+                    messages.append(aiMsg)
+
                 for call in toolCalls:
                     toolName = call.function.name
                     toolArgs = call.function.arguments
-                    
-                    con.print(f"invoke function: {toolName}{toolArgs}")
-                    
-                    # human safeguard before executing tool calls
+
+                    con.print(f"\n[bold cyan] Tool Requested:[/bold cyan] {toolName}({toolArgs})")
+
                     choice = con.input("[yellow]Allow execution? (y/N): [/yellow]").strip().lower()
-                    
-                    if choice == 'y':
+
+                    if choice == "y":
                         func = toolsDict.get(toolName)
                         if func:
                             try:
                                 result = func(**toolArgs)
                             except Exception as e:
                                 result = f"Error during tool execution: {e}"
-                            calledTool = True
-                            # print(f"[System Output]: {result}")
                             messages.append({"role": "tool", "name": toolName, "content": str(result)})
                         else:
                             raise Exception("[Error]: Tool mapping failed.")
                     else:
                         con.print("[System]: Blocked by user approval.")
-                        messages.append({"role": "tool", "name": toolName, "content": "Error: User actively denied permission to execute this tool."})
+                        messages.append({
+                            "role": "tool",
+                            "name": toolName,
+                            "content": "Error: User actively denied permission to execute this tool.",
+                        })
+
                 toolCalls.clear()
+
+                # Re-query the model to process tool outputs and generate the final answer
                 if calledTool:
+                    con.print(f"[dim]Processing tool results...[/dim]")
                     stream = ollama.chat(
                         model=model,
                         messages=messages,
                         stream=True,
-                        tools=tools
+                        tools=tools,
                     )
+            else:
+                # Normal response turn finished (no tools called)
+                if t:
+                    messages.append({"role": "assistant", "content": t})
 
             con.print()
 
